@@ -1,0 +1,31 @@
+<!doctype html><html lang="it"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Repo Pulse</title>
+<style>
+:root{font:16px system-ui;color:#e9edf7;background:#0d1220}body{max-width:1180px;margin:48px auto;padding:0 24px}h1{font-size:42px;letter-spacing:-2px;margin:0}h1 span{color:#7ae2bd}p,small{color:#99a7be}header{display:flex;justify-content:space-between;align-items:center}.cards{display:flex;gap:16px;margin:32px 0}.card{background:#171f30;padding:24px;border-radius:16px;flex:1}.card b{display:block;font-size:32px;margin-top:8px}input,select{background:#171f30;color:inherit;border:1px solid #344158;border-radius:8px;padding:12px;margin:0 8px 16px 0}table{width:100%;border-collapse:collapse}th,td{text-align:right;padding:16px 12px;border-bottom:1px solid #273247}th:first-child,td:first-child{text-align:left}a{color:#7ae2bd;text-decoration:none}svg{width:100%;height:140px;background:#171f30;border-radius:12px;margin-bottom:24px}.warn{color:#ffcb7b}.scroll{overflow:auto}button{cursor:pointer}footer{margin-top:24px}@media(max-width:650px){.cards{flex-direction:column}header{display:block}body{margin-top:24px}}
+</style>
+<header><div><h1>repo<span>pulse</span></h1><p>Tutti i tuoi repository. Un solo punto di osservazione.</p></div><small id="updated"></small></header>
+<div class="cards"><div class="card">Repository<b id="repos">—</b></div><div class="card">Visite · ultimi 14 giorni<b id="views">—</b></div><div class="card">Cloni · ultimi 14 giorni<b id="clones">—</b></div></div>
+<p id="status" class="warn"></p><input id="search" placeholder="Cerca repository" aria-label="Cerca repository"><select id="sort" aria-label="Ordina"><option value="views">Ordina per visite</option><option value="clones">Ordina per cloni</option><option value="stars">Ordina per stelle</option></select>
+<p>Visite giornaliere aggregate · ultimi 14 giorni UTC (oggi può essere incompleto)</p><svg id="chart" viewBox="0 0 1000 140" role="img" aria-label="Andamento visite giornaliere"></svg>
+<div class="scroll"><table><thead><tr><th>Repository</th><th>Visite 14 gg</th><th>Visitatori unici 14 gg</th><th>Cloni 14 gg</th><th>Clonatori unici 14 gg</th><th>Stelle</th></tr></thead><tbody id="rows"></tbody></table></div>
+<footer><small>Gli unici sono quelli restituiti da GitHub per ogni repository: non vengono sommati tra progetti o giorni. Lo storico conserva le osservazioni disponibili; i giorni mancanti non sono interpretati come zero. Dati privati, nessun servizio esterno.</small></footer>
+<script>
+const data=/*DATA*/null;
+const fmt=n=>new Intl.NumberFormat('it-IT').format(n);
+const el=id=>document.getElementById(id);
+function render(){
+ if(!data){el('status').textContent='Nessuna raccolta disponibile. Esegui python3 collect.py.';return;}
+ el('updated').textContent='Aggiornato '+new Date(data.updated_at).toLocaleString('it-IT');
+ const all=(data.active_repositories||Object.keys(data.repositories)).map(k=>data.repositories[k]);
+ const current=(r,m)=>r[m]&&r[m].collected_at===data.updated_at;
+ el('repos').textContent=fmt(all.length);
+ for(const m of ['views','clones'])el(m).textContent=fmt(all.reduce((a,r)=>a+(current(r,m)?r[m].count:0),0));
+ el('status').textContent=data.errors.length?'Raccolta parziale: '+data.errors.length+' richieste fallite. I totali escludono i dati non aggiornati.':'';
+ const rows=all.filter(r=>r.name.toLowerCase().includes(el('search').value.toLowerCase())).sort((a,b)=>el('sort').value==='stars'?b.stars-a.stars:(current(b,el('sort').value)?b[el('sort').value].count:-1)-(current(a,el('sort').value)?a[el('sort').value].count:-1));
+ el('rows').replaceChildren();
+ for(const r of rows){const tr=document.createElement('tr'),td=document.createElement('td'),a=document.createElement('a');a.href='https://github.com/'+r.name;a.textContent=r.name;td.append(a);const s=document.createElement('small');s.textContent=r.private?' · privato':' · pubblico';td.append(s);tr.append(td);for(const m of ['views','clones'])for(const k of ['count','uniques']){const c=document.createElement('td');c.textContent=current(r,m)?fmt(r[m][k]):'—';tr.append(c);}const c=document.createElement('td');c.textContent=fmt(r.stars);tr.append(c);el('rows').append(tr);}
+ const today=new Date(data.updated_at);today.setUTCHours(0,0,0,0);const days=Array.from({length:14},(_,i)=>new Date(+today-(13-i)*86400000).toISOString().slice(0,10));
+ const values=days.map(d=>{let total=0,n=0;for(const r of rows){const p=(r.history.views||[]).find(p=>p.timestamp.slice(0,10)===d);if(p){total+=p.count;n++;}}return {total,n};});
+ const max=Math.max(1,...values.map(v=>v.total));el('chart').replaceChildren();values.forEach((v,i)=>{if(!v.n)return;const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');rect.setAttribute('x',i*71+8);rect.setAttribute('y',130-v.total/max*115);rect.setAttribute('width',50);rect.setAttribute('height',Math.max(1,v.total/max*115));rect.setAttribute('fill','#7ae2bd');const title=document.createElementNS('http://www.w3.org/2000/svg','title');title.textContent=days[i]+': '+v.total+' visite · '+v.n+'/'+rows.length+' repository osservati';rect.append(title);el('chart').append(rect);});
+}
+el('search').addEventListener('input',render);el('sort').addEventListener('change',render);render();
+</script></html>

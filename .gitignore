@@ -1,0 +1,8 @@
+__pycache__/
+*.tmp
+.env
+.DS_Store
+# Collected data belongs in the private repo-pulse-data repository.
+data/
+index.html
+pulse-data/
